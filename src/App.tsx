@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AssetMap } from './config/assets';
 import { AUDIO_VOLUME, type SfxKey } from './config/audio';
 import { STORAGE_KEYS, type CharacterId } from './config/game';
@@ -8,13 +8,12 @@ import { GameScreen, type GameOutcome } from './components/GameScreen';
 import { HomeScreen } from './components/HomeScreen';
 import { ResultScreen } from './components/ResultScreen';
 import { nextHighScore } from './game/logic';
-import { loadAssets } from './services/assets';
+import { createPreloadedAudio, primePreloadedAudio } from './services/assets';
 import {
   getInitialLocale,
-  loadMessages,
   translate,
   type Locale,
-  type Messages,
+  type MessagePacks,
 } from './services/locale';
 import {
   ALL_CG_IDS,
@@ -25,6 +24,47 @@ import {
 } from './services/secretUnlock';
 
 type Screen = 'home' | 'game' | 'result' | 'gallery';
+
+interface AppProps {
+  assets: AssetMap;
+  messagePacks: MessagePacks;
+}
+
+function LaunchGate({
+  iconSchool,
+  backgroundImage,
+  t,
+  onEnter,
+}: {
+  iconSchool: string;
+  backgroundImage: string;
+  t: (key: string) => string;
+  onEnter: () => void;
+}) {
+  const [entering, setEntering] = useState(false);
+  const enter = async () => {
+    if (entering) return;
+    setEntering(true);
+    await primePreloadedAudio();
+    onEnter();
+  };
+  return (
+    <main
+      className="loading-screen"
+      style={{ backgroundImage: `url(${backgroundImage})` }}
+    >
+      <section className="launch-card">
+        <div className="launch-brand">
+          <img className="loading-logo" src={iconSchool} alt="" />
+          <h1>{t('app.title')}</h1>
+        </div>
+        <button className="primary-button" type="button" disabled={entering} onClick={() => void enter()}>
+          {t(entering ? 'launch.entering' : 'launch.enter')}
+        </button>
+      </section>
+    </main>
+  );
+}
 
 function readUnlocked(): Set<string> {
   try {
@@ -94,19 +134,12 @@ function useSecretUnlockTriggers(onActivate: () => void, enabled: boolean): void
         event.stopImmediatePropagation();
       }
     };
-    const onContextMenu = (event: MouseEvent) => {
-      if (holdPointer.current && isSecretTriggerCorner(event.clientX, event.clientY)) {
-        event.preventDefault();
-      }
-    };
-
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('pointermove', onPointerMove, true);
     window.addEventListener('pointerup', onPointerEnd, true);
     window.addEventListener('pointercancel', onPointerEnd, true);
     window.addEventListener('click', onClick, true);
-    window.addEventListener('contextmenu', onContextMenu, true);
     return () => {
       cancelHold();
       window.removeEventListener('keydown', onKeyDown);
@@ -115,16 +148,13 @@ function useSecretUnlockTriggers(onActivate: () => void, enabled: boolean): void
       window.removeEventListener('pointerup', onPointerEnd, true);
       window.removeEventListener('pointercancel', onPointerEnd, true);
       window.removeEventListener('click', onClick, true);
-      window.removeEventListener('contextmenu', onContextMenu, true);
     };
   }, [enabled, onActivate]);
 }
 
-export function App() {
-  const [assets, setAssets] = useState<AssetMap | null>(null);
-  const [progress, setProgress] = useState(0);
+export function App({ assets, messagePacks }: AppProps) {
   const [locale, setLocale] = useState<Locale>(getInitialLocale);
-  const [messages, setMessages] = useState<Messages>({});
+  const [launched, setLaunched] = useState(false);
   const [screen, setScreen] = useState<Screen>('home');
   const [session, setSession] = useState(0);
   const [character, setCharacter] = useState<CharacterId>('asteria');
@@ -135,31 +165,16 @@ export function App() {
   const [sfxEnabled, setSfxEnabled] = useState(() => readToggle(STORAGE_KEYS.sfx));
   const bgmRef = useRef<HTMLAudioElement | null>(null);
 
-  useEffect(() => {
-    let current = true;
-    loadAssets((loaded, total) => setProgress(Math.round((loaded / total) * 100))).then((result) => {
-      if (current) setAssets(result);
-    });
-    return () => {
-      current = false;
-    };
-  }, []);
+  const messages = messagePacks[locale] ?? messagePacks.en;
 
   useEffect(() => {
-    let current = true;
-    loadMessages(locale).then((result) => {
-      if (current) setMessages(result);
-    });
     localStorage.setItem(STORAGE_KEYS.locale, locale);
     document.documentElement.lang = locale;
-    return () => {
-      current = false;
-    };
   }, [locale]);
 
   useEffect(() => {
-    if (!assets) return;
-    const bgm = new Audio(assets.bgm_classroom_loop);
+    if (!launched) return;
+    const bgm = createPreloadedAudio(assets.bgm_classroom_loop);
     bgm.loop = true;
     bgm.preload = 'auto';
     bgm.volume = AUDIO_VOLUME.bgm_classroom_loop;
@@ -168,7 +183,7 @@ export function App() {
       bgm.pause();
       bgmRef.current = null;
     };
-  }, [assets]);
+  }, [assets.bgm_classroom_loop, launched]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.bgm, String(bgmEnabled));
@@ -182,7 +197,7 @@ export function App() {
     start();
     window.addEventListener('pointerdown', start, { once: true });
     return () => window.removeEventListener('pointerdown', start);
-  }, [assets, bgmEnabled]);
+  }, [bgmEnabled, launched]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.sfx, String(sfxEnabled));
@@ -194,8 +209,8 @@ export function App() {
   );
 
   const playSfx = useCallback((key: SfxKey) => {
-    if (!assets || !sfxEnabled) return;
-    const sound = new Audio(assets[key]);
+    if (!sfxEnabled) return;
+    const sound = createPreloadedAudio(assets[key]);
     sound.volume = AUDIO_VOLUME[key];
     void sound.play().catch(() => undefined);
   }, [assets, sfxEnabled]);
@@ -208,7 +223,7 @@ export function App() {
   }, []);
   useSecretUnlockTriggers(
     activateSecretUnlock,
-    Boolean(assets && Object.keys(messages).length > 0),
+    launched,
   );
 
   useEffect(() => {
@@ -232,8 +247,15 @@ export function App() {
     const preventImageDrag = (event: DragEvent) => {
       if (event.target instanceof HTMLImageElement) event.preventDefault();
     };
+    const preventSelection = (event: Event) => event.preventDefault();
     document.addEventListener('dragstart', preventImageDrag, true);
-    return () => document.removeEventListener('dragstart', preventImageDrag, true);
+    document.addEventListener('selectstart', preventSelection, true);
+    document.addEventListener('contextmenu', preventSelection, true);
+    return () => {
+      document.removeEventListener('dragstart', preventImageDrag, true);
+      document.removeEventListener('selectstart', preventSelection, true);
+      document.removeEventListener('contextmenu', preventSelection, true);
+    };
   }, []);
 
   const completeGame = useCallback((nextOutcome: GameOutcome) => {
@@ -252,33 +274,30 @@ export function App() {
     setScreen('result');
   }, []);
 
-  const loadingText = useMemo(
-    () => translate(messages, 'loading.assets', { progress }),
-    [messages, progress],
-  );
-
-  if (!assets || Object.keys(messages).length === 0) {
+  if (!launched) {
     return (
-      <main className="loading-screen">
-        <div className="loading-mark" aria-hidden="true" />
-        {messages['app.title'] && <h1>{messages['app.title']}</h1>}
-        <div className="loading-track"><span style={{ width: `${progress}%` }} /></div>
-        {messages['loading.assets'] && <p>{loadingText}</p>}
-      </main>
+      <LaunchGate
+        iconSchool={assets.icon_school}
+        backgroundImage={assets.bg_home_classroom}
+        t={t}
+        onEnter={() => setLaunched(true)}
+      />
     );
   }
 
   return (
     <div className="app-shell">
-      <ClassroomControls
-        locale={locale}
-        bgmEnabled={bgmEnabled}
-        sfxEnabled={sfxEnabled}
-        t={t}
-        onLocaleChange={setLocale}
-        onBgmToggle={() => setBgmEnabled((enabled) => !enabled)}
-        onSfxToggle={() => setSfxEnabled((enabled) => !enabled)}
-      />
+      {screen !== 'game' && (
+        <ClassroomControls
+          locale={locale}
+          bgmEnabled={bgmEnabled}
+          sfxEnabled={sfxEnabled}
+          t={t}
+          onLocaleChange={setLocale}
+          onBgmToggle={() => setBgmEnabled((enabled) => !enabled)}
+          onSfxToggle={() => setSfxEnabled((enabled) => !enabled)}
+        />
+      )}
       {screen === 'home' && (
         <HomeScreen
           assets={assets}
@@ -309,10 +328,6 @@ export function App() {
           assets={assets}
           outcome={outcome}
           t={t}
-          onReplay={() => {
-            setSession((value) => value + 1);
-            setScreen('game');
-          }}
           onHome={() => setScreen('home')}
         />
       )}
