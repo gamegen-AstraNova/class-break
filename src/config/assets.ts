@@ -1,4 +1,6 @@
 export const ASSET_PATHS = {
+  icon_school: 'textures/icon_school.svg',
+  font_chalk_jp: 'fonts/chalk_jp.otf',
   bg_home_classroom: 'textures/bg_home_classroom.png',
   bg_classroom: 'textures/bg_classroom.png',
   panel_character_paper: 'textures/panel_character_paper.png',

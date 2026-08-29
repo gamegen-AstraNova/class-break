@@ -1,11 +1,11 @@
 export const CHARACTERS = ['asteria', 'nyx', 'lumi'] as const;
 export type CharacterId = (typeof CHARACTERS)[number];
 
-export const CHARACTER_POSITION: Record<CharacterId, number> = {
-  asteria: 24,
-  nyx: 50,
-  lumi: 76,
-};
+export const STUDENT_SEAT_POSITIONS = {
+  left: 24,
+  center: 50,
+  right: 76,
+} as const;
 
 export const LESSON = {
   id: 'homeroom',
@@ -17,6 +17,8 @@ export const LESSON = {
   teacherPauseMs: 2_000,
   teacherPositionMin: 32,
   teacherPositionMax: 68,
+  teacherNarrowPositionMin: 44,
+  teacherNarrowPositionMax: 56,
   teacherTurnChance: 0.62,
   boardFormulaLimit: 3,
   classmateFollowIntervalMs: 800,
