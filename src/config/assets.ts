@@ -1,0 +1,50 @@
+export const ASSET_PATHS = {
+  bg_home_classroom: 'textures/bg_home_classroom.png',
+  bg_classroom: 'textures/bg_classroom.png',
+  panel_character_paper: 'textures/panel_character_paper.png',
+  deco_classroom_chair: 'textures/deco_classroom_chair.png',
+  deco_classroom_desk: 'textures/deco_classroom_desk.png',
+  sym_teacher_teaching: 'textures/sym_teacher_teaching.png',
+  sym_teacher_writing: 'textures/sym_teacher_writing.png',
+  icon_caution: 'textures/icon_caution.png',
+  sym_asteria_select: 'textures/sym_asteria_select.png',
+  sym_asteria_listen: 'textures/sym_asteria_listen.png',
+  sym_asteria_slack: 'textures/sym_asteria_slack.png',
+  sym_nyx_select: 'textures/sym_nyx_select.png',
+  sym_nyx_listen: 'textures/sym_nyx_listen.png',
+  sym_nyx_slack: 'textures/sym_nyx_slack.png',
+  sym_lumi_select: 'textures/sym_lumi_select.png',
+  sym_lumi_listen: 'textures/sym_lumi_listen.png',
+  sym_lumi_slack: 'textures/sym_lumi_slack.png',
+  bg_asteria_caught: 'textures/bg_asteria_caught.png',
+  bg_asteria_timeup: 'textures/bg_asteria_timeup.png',
+  bg_asteria_win: 'textures/bg_asteria_win.png',
+  bg_nyx_caught: 'textures/bg_nyx_caught.png',
+  bg_nyx_timeup: 'textures/bg_nyx_timeup.png',
+  bg_nyx_win: 'textures/bg_nyx_win.png',
+  bg_lumi_caught: 'textures/bg_lumi_caught.png',
+  bg_lumi_timeup: 'textures/bg_lumi_timeup.png',
+  bg_lumi_win: 'textures/bg_lumi_win.png',
+  bgm_classroom_loop: 'audio/bgm_classroom_loop.mp3',
+  sfx_ui_click: 'audio/sfx_ui_click.mp3',
+  sfx_teacher_walk_loop: 'audio/sfx_teacher_walk_loop.mp3',
+  sfx_teacher_write_loop: 'audio/sfx_teacher_write_loop.mp3',
+  sfx_warning: 'audio/sfx_warning.wav',
+  sfx_caught: 'audio/sfx_caught.wav',
+  sfx_win: 'audio/sfx_win.wav',
+} as const;
+
+export type AssetKey = keyof typeof ASSET_PATHS;
+
+export const ASSET_REVISIONS: Partial<Record<AssetKey, string>> = {
+  sym_teacher_teaching: '2',
+  sym_teacher_writing: '2',
+  bg_asteria_caught: '2',
+  bg_asteria_timeup: '2',
+  bg_asteria_win: '2',
+  bg_nyx_caught: '2',
+  bg_nyx_timeup: '2',
+  bg_nyx_win: '6',
+};
+
+export type AssetMap = Record<AssetKey, string>;
