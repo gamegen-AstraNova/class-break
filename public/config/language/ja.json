@@ -1,6 +1,7 @@
 {
   "app.title": "Class Break",
-  "loading.assets": "教室を準備中……{progress}%",
+  "launch.enter": "ゲームに入る",
+  "launch.entering": "起動中…",
   "home.choose": "操作する生徒を選択",
   "home.instructions": "先生が板書中に長押し。振り向く前に離そう。",
   "home.start": "授業開始",
@@ -22,7 +23,6 @@
   "result.caught.body": "先生が振り向いた時、まだサボっていました。",
   "result.timeup.title": "サボり失敗！",
   "result.timeup.body": "目標スコアに届く前に授業が終わりました。",
-  "result.replay": "もう一度",
   "result.home": "キャラ選択へ",
   "result.score": "スコア：{score}",
   "gallery.title": "CGギャラリー",

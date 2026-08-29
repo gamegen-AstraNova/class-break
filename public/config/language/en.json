@@ -1,6 +1,7 @@
 {
   "app.title": "Class Break",
-  "loading.assets": "Preparing class… {progress}%",
+  "launch.enter": "Enter game",
+  "launch.entering": "Entering…",
   "home.choose": "Choose your student",
   "home.instructions": "Hold to slack off while the teacher writes. Release before she turns around.",
   "home.start": "Start class",
@@ -22,7 +23,6 @@
   "result.caught.body": "The teacher turned around while you were slacking off.",
   "result.timeup.title": "Slacking failed!",
   "result.timeup.body": "Class ended before you reached the target score.",
-  "result.replay": "Try again",
   "result.home": "Character select",
   "result.score": "Score: {score}",
   "gallery.title": "CG Gallery",

@@ -1,6 +1,7 @@
 {
   "app.title": "Class Break",
-  "loading.assets": "正在準備教室……{progress}%",
+  "launch.enter": "進入遊戲",
+  "launch.entering": "正在進入……",
   "home.choose": "選擇操作角色",
   "home.instructions": "老師寫黑板時長按摸魚，轉身前立刻鬆開。",
   "home.start": "開始上課",
@@ -22,7 +23,6 @@
   "result.caught.body": "老師轉身時，你還在摸魚。",
   "result.timeup.title": "摸魚失敗！",
   "result.timeup.body": "下課前未達目標分數。",
-  "result.replay": "再試一次",
   "result.home": "返回選角",
   "result.score": "分數：{score}",
   "gallery.title": "CG 圖鑑",
