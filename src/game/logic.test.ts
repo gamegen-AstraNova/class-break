@@ -4,8 +4,10 @@ import {
   accumulateScore,
   allClassmatesAreSlacking,
   allStudentsAreSlacking,
+  assignStudentSeatPositions,
   classmateFollowChance,
   clamp,
+  formulaPlacementForTeacher,
   formatSeconds,
   nextTeacherPosition,
   nextHighScore,
@@ -60,6 +62,45 @@ describe('Class Break game rules', () => {
     expect(nextTeacherPosition(50, 0)).toBe(32);
     expect(nextTeacherPosition(50, 1)).toBe(68);
     expect(Math.abs(nextTeacherPosition(50, 0.5) - 50)).toBeGreaterThanOrEqual(12);
+  });
+
+  it('always seats the player in the center and randomizes the classmates left and right', () => {
+    expect(assignStudentSeatPositions('asteria', 0)).toEqual({
+      asteria: 50,
+      nyx: 24,
+      lumi: 76,
+    });
+    expect(assignStudentSeatPositions('asteria', 1)).toEqual({
+      asteria: 50,
+      nyx: 76,
+      lumi: 24,
+    });
+    expect(assignStudentSeatPositions('lumi', 0).lumi).toBe(50);
+  });
+
+  it('keeps teacher writing positions inside the narrow-screen blackboard view', () => {
+    const { teacherNarrowPositionMin: min, teacherNarrowPositionMax: max } = LESSON;
+    expect(nextTeacherPosition(50, 0, min, max)).toBe(min);
+    expect(nextTeacherPosition(50, 1, min, max)).toBe(max);
+  });
+
+  it('places each formula at its teacher position and anchors it toward the visible board', () => {
+    expect(formulaPlacementForTeacher(32, 32, 68)).toEqual({
+      position: 32,
+      anchor: 'start',
+    });
+    expect(formulaPlacementForTeacher(50, 32, 68)).toEqual({
+      position: 50,
+      anchor: 'center',
+    });
+    expect(formulaPlacementForTeacher(68, 32, 68)).toEqual({
+      position: 68,
+      anchor: 'end',
+    });
+    expect(formulaPlacementForTeacher(80, 44, 56)).toEqual({
+      position: 56,
+      anchor: 'end',
+    });
   });
 
   it('uses the configured probability to choose a real turn', () => {

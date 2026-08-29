@@ -1,6 +1,12 @@
-import { CHARACTERS, LESSON } from '../config/game';
+import {
+  CHARACTERS,
+  LESSON,
+  STUDENT_SEAT_POSITIONS,
+  type CharacterId,
+} from '../config/game';
 
 export type TeacherPhase = 'writing' | 'warning' | 'watching';
+export type FormulaAnchor = 'start' | 'center' | 'end';
 export const RESULT_KINDS = ['caught', 'timeup', 'win'] as const;
 export type ResultKind = (typeof RESULT_KINDS)[number];
 
@@ -38,14 +44,47 @@ export function randomBetween(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
-export function nextTeacherPosition(current: number, randomValue = Math.random()): number {
-  const { teacherPositionMin: min, teacherPositionMax: max } = LESSON;
+export function assignStudentSeatPositions(
+  player: CharacterId,
+  randomValue = Math.random(),
+): Record<CharacterId, number> {
+  const classmates = CHARACTERS.filter((character) => character !== player);
+  const [left, right] = randomValue < 0.5 ? classmates : [classmates[1], classmates[0]];
+  return {
+    [left]: STUDENT_SEAT_POSITIONS.left,
+    [player]: STUDENT_SEAT_POSITIONS.center,
+    [right]: STUDENT_SEAT_POSITIONS.right,
+  } as Record<CharacterId, number>;
+}
+
+export function nextTeacherPosition(
+  current: number,
+  randomValue = Math.random(),
+  min: number = LESSON.teacherPositionMin,
+  max: number = LESSON.teacherPositionMax,
+): number {
   const candidate = min + clamp(randomValue, 0, 1) * (max - min);
-  const minimumTravel = 12;
+  const minimumTravel = Math.min(12, (max - min) / 2);
   if (Math.abs(candidate - current) >= minimumTravel) return candidate;
   return current <= (min + max) / 2
     ? Math.min(max, current + minimumTravel)
     : Math.max(min, current - minimumTravel);
+}
+
+export function formulaPlacementForTeacher(
+  teacherPosition: number,
+  min: number,
+  max: number,
+): { position: number; anchor: FormulaAnchor } {
+  const position = clamp(teacherPosition, min, max);
+  const range = Math.max(1, max - min);
+  const positionRatio = (position - min) / range;
+  return {
+    position,
+    anchor: positionRatio < 1 / 3
+      ? 'start'
+      : positionRatio > 2 / 3 ? 'end' : 'center',
+  };
 }
 
 export function shouldTeacherTurn(randomValue = Math.random()): boolean {
