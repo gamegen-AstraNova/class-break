@@ -8,22 +8,25 @@ import {
 } from 'react';
 import type { AssetKey, AssetMap } from '../config/assets';
 import { AUDIO_VOLUME } from '../config/audio';
+import { createPreloadedAudio } from '../services/assets';
 import {
   CHARACTERS,
-  CHARACTER_POSITION,
   BLACKBOARD_FORMULAS,
   LESSON,
   type CharacterId,
 } from '../config/game';
 import {
   allStudentsAreSlacking,
+  assignStudentSeatPositions,
   classmateFollowChance,
+  formulaPlacementForTeacher,
   formatSeconds,
   nextTeacherPosition,
   randomBetween,
   accumulateScore,
   shouldTeacherPause,
   shouldTeacherTurn,
+  type FormulaAnchor,
   type ResultKind,
   type TeacherPhase,
 } from '../game/logic';
@@ -46,14 +49,15 @@ interface GameScreenProps {
 interface BlackboardFormula {
   id: number;
   text: string;
-  column: 'left' | 'center' | 'right';
+  position: number;
+  anchor: FormulaAnchor;
   rotation: number;
 }
 
 function useLoopingAudio(source: string, enabled: boolean, volume: number) {
   useEffect(() => {
     if (!enabled) return;
-    const audio = new Audio(source);
+    const audio = createPreloadedAudio(source);
     audio.loop = true;
     audio.volume = volume;
     void audio.play().catch(() => undefined);
@@ -67,10 +71,12 @@ function useLoopingAudio(source: string, enabled: boolean, volume: number) {
 function StudentSeat({
   assets,
   character,
+  position,
   slacking,
 }: {
   assets: AssetMap;
   character: CharacterId;
+  position: number;
   slacking: boolean;
 }) {
   const state = slacking ? 'slack' : 'listen';
@@ -78,7 +84,7 @@ function StudentSeat({
   return (
     <div
       className={`student-seat student-seat--${character}${state === 'slack' ? ' is-slacking' : ''}`}
-      style={{ left: `${CHARACTER_POSITION[character]}%` }}
+      style={{ left: `${position}%` }}
       aria-hidden="true"
     >
       <img className="desk-layer" src={assets.deco_classroom_desk} alt="" draggable={false} />
@@ -106,6 +112,7 @@ export function GameScreen({
   const [formulas, setFormulas] = useState<BlackboardFormula[]>([]);
   const [classmatesSlacking, setClassmatesSlacking] = useState<CharacterId[]>([]);
   const [classroomAttention, setClassroomAttention] = useState(false);
+  const [seatPositions] = useState(() => assignStudentSeatPositions(character));
   const phaseRef = useRef<TeacherPhase>('writing');
   const holdingRef = useRef(false);
   const activeRef = useRef(true);
@@ -178,16 +185,22 @@ export function GameScreen({
   useEffect(() => {
     let teacherTimer = 0;
     let attentionTimer = 0;
-    const addFormula = (position: number) => {
+    const teacherRange = () => window.matchMedia('(max-width: 760px)').matches
+      ? {
+          min: LESSON.teacherNarrowPositionMin,
+          max: LESSON.teacherNarrowPositionMax,
+        }
+      : {
+          min: LESSON.teacherPositionMin,
+          max: LESSON.teacherPositionMax,
+        };
+    const addFormula = (position: number, min: number, max: number) => {
       const text = BLACKBOARD_FORMULAS[Math.floor(Math.random() * BLACKBOARD_FORMULAS.length)];
-      const positionRatio = (
-        (position - LESSON.teacherPositionMin)
-        / (LESSON.teacherPositionMax - LESSON.teacherPositionMin)
-      );
+      const placement = formulaPlacementForTeacher(position, min, max);
       const formula: BlackboardFormula = {
         id: formulaIdRef.current += 1,
         text,
-        column: positionRatio < 1 / 3 ? 'left' : positionRatio > 2 / 3 ? 'right' : 'center',
+        ...placement,
         rotation: randomBetween(-1.5, 1.5),
       };
       setFormulas((current) => [...current, formula].slice(-LESSON.boardFormulaLimit));
@@ -222,7 +235,8 @@ export function GameScreen({
     const startWriting = () => {
       if (!activeRef.current) return;
       updatePhase('writing');
-      const nextPosition = nextTeacherPosition(teacherPositionRef.current);
+      const { min, max } = teacherRange();
+      const nextPosition = nextTeacherPosition(teacherPositionRef.current, Math.random(), min, max);
       const walkDuration = randomBetween(LESSON.teacherWalkMinMs, LESSON.teacherWalkMaxMs);
       teacherPositionRef.current = nextPosition;
       setTeacherWalkMs(walkDuration);
@@ -230,7 +244,7 @@ export function GameScreen({
       setTeacherPosition(nextPosition);
       teacherTimer = window.setTimeout(() => {
         if (!activeRef.current) return;
-        addFormula(nextPosition);
+        addFormula(nextPosition, min, max);
         if (!shouldTeacherPause()) {
           startWriting();
           return;
@@ -368,12 +382,12 @@ export function GameScreen({
   }, [begin, release]);
 
   const pointerDown = (event: PointerEvent<HTMLElement>) => {
+    event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     begin();
   };
   const progress = Math.min(100, (score / LESSON.targetScore) * 100);
   const remaining = LESSON.durationMs - elapsedMs;
-  const focusShift = character === 'asteria' ? 250 : character === 'lumi' ? -250 : 0;
   const visibleStatusPhase = phase === 'warning' ? 'watching' : phase;
   const everyoneSlacking = allStudentsAreSlacking(holding, classmatesSlacking.length);
   const statusKey = classroomAttention
@@ -393,8 +407,11 @@ export function GameScreen({
           <strong>{Math.round(score).toLocaleString()}</strong>
           <small>{t('hud.goal', { score: LESSON.targetScore.toLocaleString() })}</small>
         </div>
-        <div className="score-track" aria-label={t('hud.score')}>
-          <span style={{ width: `${progress}%` }} />
+        <div className="hud-progress">
+          <div className="score-track" aria-label={t('hud.score')}>
+            <span style={{ width: `${progress}%` }} />
+          </div>
+          <p className="hud-hint">{t('control.hint')}</p>
         </div>
         <div className="hud-block hud-time">
           <span>{t('hud.time')}</span>
@@ -407,18 +424,26 @@ export function GameScreen({
         onPointerDown={pointerDown}
         onPointerUp={release}
         onPointerCancel={release}
-        onContextMenu={(event) => event.preventDefault()}
       >
-        <div className="stage-scene" style={{ '--focus-shift': `${focusShift}px` } as CSSProperties}>
+        <div
+          className="stage-scene"
+          style={{
+            '--narrow-teacher-min': `${LESSON.teacherNarrowPositionMin}%`,
+            '--narrow-teacher-max': `${LESSON.teacherNarrowPositionMax}%`,
+            '--narrow-formula-min': `${LESSON.teacherNarrowPositionMin}cqw`,
+            '--narrow-formula-max': `${LESSON.teacherNarrowPositionMax}cqw`,
+          } as CSSProperties}
+        >
           <img className="classroom-bg" src={assets.bg_classroom} alt="" draggable={false} />
           <div className="blackboard-artboard" aria-hidden="true">
             <div className="blackboard-formulas">
               {formulas.map((formula, row) => (
                 <span
                   key={formula.id}
-                  className={`blackboard-formula blackboard-formula--${formula.column}`}
+                  className={`blackboard-formula blackboard-formula--${formula.anchor}`}
                   style={{
-                    top: `${18 + row * 32}%`,
+                    top: `${20 + row * 10}%`,
+                    '--formula-x': `${formula.position}cqw`,
                     '--formula-rotation': `${formula.rotation}deg`,
                   } as CSSProperties}
                 >
@@ -442,6 +467,7 @@ export function GameScreen({
               key={student}
               assets={assets}
               character={student}
+              position={seatPositions[student]}
               slacking={student === character ? holding : classmatesSlacking.includes(student)}
             />
           ))}
@@ -474,9 +500,6 @@ export function GameScreen({
         </div>
       </section>
 
-      <section className="control-panel">
-        <p>{t('control.hint')}</p>
-      </section>
     </main>
   );
 }

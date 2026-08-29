@@ -111,6 +111,12 @@ export function GalleryScreen({ assets, unlocked, t, onBack }: GalleryScreenProp
           data-ui-sfx
           onMouseDown={closeLightbox}
         >
+          <img
+            className="gallery-lightbox-backdrop"
+            src={assets[selectedImageKey]}
+            alt=""
+            draggable={false}
+          />
           <figure
             ref={dialogRef}
             className="gallery-lightbox-frame"
